@@ -39,7 +39,7 @@ from internlm.utils.parallel import (
     sync_model_param_within_tp,
 )
 from internlm.utils.registry import MODEL_INITIALIZER
-
+from utils.utils import get_no_wd_decay_cond
 logger = get_logger(__file__)
 
 
@@ -83,6 +83,24 @@ def initialize_model():
     return model
 
 
+
+def no_wd_decay_func(no_weight_decay_list, name, param):
+    for no_weight_decay_name in no_weight_decay_list:
+        if no_weight_decay_name in name:
+            return True
+    return False
+
+def get_no_wd_decay_cond(use_no_weight_decay_cond=False, no_weight_decay_list=None):
+    if use_no_weight_decay_cond:
+        no_weight_decay_list = no_weight_decay_list.split(",")
+        print(f"use_no_weight_decay_cond, no_wd_decay_cond is: {no_weight_decay_list}")
+        # 对embedding, norm, bias不做weight decay 参考 https://github.com/karpathy/minGPT/pull/24#issuecomment-679316025
+        no_wd_decay_cond = lambda name, param: no_wd_decay_func(no_weight_decay_list, name, param)
+    else:
+        no_wd_decay_cond = None
+    return no_wd_decay_cond
+
+
 def initialize_optimizer(model: Union[nn.Module, nn.ModuleList]):
     """
     Initialize optimizer.
@@ -98,12 +116,57 @@ def initialize_optimizer(model: Union[nn.Module, nn.ModuleList]):
         param_bcast_sync_handler = None
 
     adam_cfg = gpc.config.adam
-    naive_optimizer = torch.optim.AdamW(
-        params=[{"params": model.parameters(), "weight_decay": adam_cfg.weight_decay}],
-        lr=adam_cfg.lr,
-        betas=(adam_cfg.adam_beta1, adam_cfg.adam_beta2),
-        eps=adam_cfg.adam_eps,
-    )
+    use_no_weight_decay_cond = gpc.config.get("use_no_weight_decay_cond", False)
+    no_weight_decay_list = gpc.config.get("no_weight_decay_list", None)
+    if not use_no_weight_decay_cond:
+        naive_optimizer = torch.optim.AdamW(
+            params=[{"params": model.parameters(), "weight_decay": adam_cfg.weight_decay}],
+            lr=adam_cfg.lr,
+            betas=(adam_cfg.adam_beta1, adam_cfg.adam_beta2),
+            eps=adam_cfg.adam_eps,
+        )
+    else:
+
+        no_weight_decay_cond = get_no_wd_decay_cond(use_no_weight_decay_cond=use_no_weight_decay_cond, no_weight_decay_list=no_weight_decay_list)
+
+        no_wd_params = []
+        no_wd_name_list = []
+        wd_params = []
+        wd_name_list = []
+        for name, param in model.named_parameters():
+            if torch.distributed.get_rank() == 0:
+                print(f"named_parameters name:{name}, requires_grad:{param.requires_grad}")
+            if not param.requires_grad:
+                continue
+            
+            if no_weight_decay_cond is not None:
+                no_wd = no_weight_decay_cond(name, param)
+            else:
+                assert 0
+                # do not regularize biases nor Norm parameters
+                no_wd = name.endswith(".bias") or len(param.shape) == 1
+
+            if not no_wd:
+                wd_params.append(param)
+                wd_name_list.append(name)
+            else:
+                no_wd_params.append(param)
+                no_wd_name_list.append(name)
+
+        if torch.distributed.get_rank() == 0:
+            print(f"no_wd_name_list:{no_wd_name_list}, \n wd_name_list:{wd_name_list}, \n")
+            pass
+        param_groups = []
+        if len(no_wd_params):
+            param_groups.append({"params": no_wd_params, "weight_decay": 0})
+        if len(wd_params):
+            param_groups.append({"params": wd_params, "weight_decay": adam_cfg.weight_decay})
+        naive_optimizer = torch.optim.AdamW(
+            params=param_groups,
+            lr=adam_cfg.lr,
+            betas=(adam_cfg.adam_beta1, adam_cfg.adam_beta2),
+            eps=adam_cfg.adam_eps,
+        )
 
     optimizer = HybridZeroOptimizer(
         naive_optimizer,
