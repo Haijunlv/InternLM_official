@@ -39,7 +39,6 @@ from internlm.utils.parallel import (
     sync_model_param_within_tp,
 )
 from internlm.utils.registry import MODEL_INITIALIZER
-from utils.utils import get_no_wd_decay_cond
 logger = get_logger(__file__)
 
 
