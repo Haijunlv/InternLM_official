@@ -282,7 +282,6 @@ def get_validation_data_loader(
             if gpc.is_rank_for_log():
                 logger.info(
                     f"load validation dataset {val_name} with valid batch size {str(data_cfg.valid_micro_num)} and "
-                    f"{ds.size} Byte samples."
                 )
         else:
             # making the batch_size of validate larger can speed up the evaluation, but it should not be too large,

@@ -15,7 +15,14 @@ def switch_evaluation_no_pipeline_scheduler(trainer, grad_accum_size, grad_accum
     if not gpc.is_using_pp():
         prev_data_process_func = trainer.schedule.data_process_func
         prev_grad_accum_size = trainer.schedule._grad_accum_size
-        prev_grad_accum_batch_size = trainer.schedule._grad_accum_batch_size
+
+        if not hasattr(trainer.schedule, "_grad_accum_batch_size"):
+            # only for eval
+            prev_grad_accum_batch_size = grad_accum_batch_size
+        else:
+            prev_grad_accum_batch_size = trainer.schedule._grad_accum_batch_size
+
+        #prev_grad_accum_batch_size = trainer.schedule._grad_accum_batch_size
         prev_metric_hooks = trainer.schedule._hooks
         try:
             trainer.schedule.data_process_func = None
