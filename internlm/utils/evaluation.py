@@ -144,7 +144,8 @@ def evaluate_on_val_dls(
 
             val_res = val_metric.get_metric()
             if verbose and (streaming or len(val_dl) != 0):
-                val_loss = val_loss / (val_idx + 1 + 1e-6)
+                #val_loss = val_loss / (val_idx + 1 + 1e-6)
+                val_loss = val_res["loss_from_metric"]
                 infos = {
                     "step": step_count,
                     f"val/{val_name}_loss": val_loss,
