@@ -11,7 +11,8 @@ from collections import Counter
 from importlib.machinery import SourceFileLoader
 from pathlib import Path
 from typing import Union
-
+import datetime
+import os
 import numpy as np
 import torch
 import torch.distributed as dist
@@ -374,7 +375,10 @@ class ParallelContext(metaclass=SingletonMeta):
         """
         # initialize the default process group
         init_method = f"tcp://[{host}]:{port}"
-        dist.init_process_group(rank=rank, world_size=world_size, backend=backend, init_method=init_method)
+        LLM_NCCL_TIMEOUT = datetime.timedelta(seconds=int(os.getenv("NCCL_TIMEOUT", str(1800))))
+        logger.info(f"LLM_NCCL_TIMEOUT:{LLM_NCCL_TIMEOUT}")
+
+        dist.init_process_group(rank=rank, world_size=world_size, backend=backend, init_method=init_method, timeout=LLM_NCCL_TIMEOUT)
 
         # None will give the default global process group for pytorch dist operations
         ranks = list(range(world_size))

@@ -35,10 +35,10 @@ def empty_cache_and_diag(batch_count, interval=50):
         if batch_count > 0:
             if gpc.is_rank_for_log():
                 logger.info("Empty Cache and Diagnosis GPU/NCCL/Timer ...")
-            with torch.no_grad():
-                timer_diagnosis()
-                bench_gpu()
-                bench_net()
+            # with torch.no_grad():
+            #     timer_diagnosis()
+            #     bench_gpu()
+            #     #bench_net()
         # do empty_cache after the bench
         torch.cuda.empty_cache()
         # do garbage collection
