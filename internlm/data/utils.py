@@ -5,8 +5,7 @@ import torch
 
 from internlm.core.context import global_context as gpc
 
-DATASET_TYPE_IDS_MAP = {"en": 0, "cn": 1, "code": 2}
-
+DATASET_TYPE_IDS_MAP = {"en": 0, "cn": 1, "code": 2, "bohr_data": 3, "flan": 4, "MAmmoTH": 5, "Oppenheimer_kaoshi": 6, "orca": 7, "orca_cn": 8, "wizard": 9}
 
 def get_dataset_type_id(path):
     import re

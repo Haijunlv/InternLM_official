@@ -15,7 +15,12 @@ def switch_evaluation_no_pipeline_scheduler(trainer, grad_accum_size, grad_accum
     if not gpc.is_using_pp():
         prev_data_process_func = trainer.schedule.data_process_func
         prev_grad_accum_size = trainer.schedule._grad_accum_size
-        prev_grad_accum_batch_size = trainer.schedule._grad_accum_batch_size
+        if not hasattr(trainer.schedule, "_grad_accum_batch_size"):
+            # only for eval
+            prev_grad_accum_batch_size = grad_accum_batch_size
+        else:
+            prev_grad_accum_batch_size = trainer.schedule._grad_accum_batch_size
+
         prev_metric_hooks = trainer.schedule._hooks
         try:
             trainer.schedule.data_process_func = None
@@ -149,7 +154,8 @@ def evaluate_on_val_dls(
 
             val_res = val_metric.get_metric()
             if verbose and (streaming or len(val_dl) != 0):
-                val_loss = val_loss / (val_idx + 1 + 1e-6)
+                #val_loss = val_loss / (val_idx + 1 + 1e-6)
+                val_loss = val_res["loss_from_metric"]
                 infos = {
                     "step": step_count,
                     f"val/{val_name}_loss": val_loss,
