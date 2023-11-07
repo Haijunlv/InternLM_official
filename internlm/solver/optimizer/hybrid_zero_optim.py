@@ -680,7 +680,7 @@ class HybridZeroOptimizer(BaseOptimizer):
 
         for handle in handles:
             handle.wait()
-        torch.cuda().synchronize()
+        torch.cuda.synchronize()
 
 
     ##################
